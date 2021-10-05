@@ -1,0 +1,98 @@
+zabbix_export:
+  version: '5.4'
+  date: '2021-10-05T10:02:12Z'
+  groups:
+    -
+      uuid: 7df96b18c230490a9a0a9e2307226338
+      name: Templates
+  templates:
+    -
+      uuid: d99f63c169ec4652be2b68281b8ab121
+      template: Healthchecks.io
+      name: Healthchecks.io
+      description: |
+        Past your read-only API key in macro {$API_KEY}
+        Get API key from your project settings
+      groups:
+        -
+          name: Templates
+      items:
+        -
+          uuid: d9930320f0484094b8d70a86ba38eb30
+          name: 'Healthchecks API'
+          type: HTTP_AGENT
+          key: http.healthchecks.api
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          preprocessing:
+            -
+              type: STR_REPLACE
+              parameters:
+                - '"checks"'
+                - '"data"'
+          url: 'https://healthchecks.io/api/v1/checks/'
+          headers:
+            -
+              name: X-Api-Key
+              value: '{$API_KEY}'
+      discovery_rules:
+        -
+          uuid: 624e595732cd4da7889b61e77358f471
+          name: 'Discovery Hosts'
+          type: DEPENDENT
+          key: lld.healthchecks.api
+          delay: '0'
+          filter:
+            conditions:
+              -
+                macro: '{#NAME}'
+                formulaid: A
+          lifetime: 7d
+          item_prototypes:
+            -
+              uuid: 91f6a40fba6c46e0aa41780c088417fe
+              name: '{#NAME}'
+              type: DEPENDENT
+              key: 'healthchecks.io.api[{#NAME}]'
+              delay: '0'
+              trends: '0'
+              value_type: CHAR
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.data.[?(@.name == "{#NAME}")].status.first()'
+                -
+                  type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - '3600'
+              master_item:
+                key: http.healthchecks.api
+              trigger_prototypes:
+                -
+                  uuid: 79786c87b2114c9ba34e329e849937cf
+                  expression: 'last(/Healthchecks.io/healthchecks.io.api[{#NAME}])="grace"'
+                  name: 'Healthchecks.io check for {#NAME} inside grace period'
+                  priority: WARNING
+                  manual_close: 'YES'
+                -
+                  uuid: 06b960a24af64d6b908453cfd0eee994
+                  expression: 'last(/Healthchecks.io/healthchecks.io.api[{#NAME}])="down"'
+                  name: 'Healthchecks.io check for {#NAME} is down'
+                  priority: AVERAGE
+                -
+                  uuid: 6c6b6f3488ef4b548aa6dd1b6310a1a9
+                  expression: 'last(/Healthchecks.io/healthchecks.io.api[{#NAME}])="paused" and change(/Healthchecks.io/healthchecks.io.api[{#NAME}])=1'
+                  name: 'Healthchecks.io check for {#NAME} is paused'
+                  priority: INFO
+                  manual_close: 'YES'
+          master_item:
+            key: http.healthchecks.api
+          lld_macro_paths:
+            -
+              lld_macro: '{#NAME}'
+              path: $.name
+      macros:
+        -
+          macro: '{$API_KEY}'
